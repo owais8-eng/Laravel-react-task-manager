@@ -8,4 +8,10 @@ class Task extends Model
 {
     protected $fillable = [ 'title','description' , 'isCompleted' , 'due_date'];
 
+
+    public function user()
+    {
+        return $this->belongsTo(User::class);
+    }
+    
 }
