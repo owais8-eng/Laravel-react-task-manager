@@ -13,11 +13,13 @@ import DeleteIcon from "@mui/icons-material/Delete";
 import CheckCircleIcon from "@mui/icons-material/CheckCircle";
 import UndoIcon from "@mui/icons-material/Undo";
 import EditIcon from "@mui/icons-material/Edit";
-import { useEffect, useState } from "react";
+import { useContext, useEffect, useState } from "react";
 import api from "./Api";
 import { motion, AnimatePresence } from "framer-motion";
+import { AuthContext } from "../Contexts/AuthContext";
 
 export default function Todo() {
+    const { token, user, logout } = useContext(AuthContext);
     const [tasks, setTasks] = useState([]);
     const [form, setForm] = useState({
         title: "",
@@ -28,21 +30,29 @@ export default function Todo() {
 
     // Fetch tasks
     async function fetchtasks() {
-        const res = await api.get("/tasks");
+        if (!token) return;
+        const res = await api.get("/tasks", {
+            headers: { Authorization: `Bearer ${token}` },
+        });
         setTasks(res.data);
     }
 
     // Add new task
     async function addTask(e) {
         e.preventDefault();
-        await api.post("/tasks", { ...form, isCompleted: false });
+        await api.post
+            ("/tasks",
+                { ...form, isCompleted: false },
+                { headers: { Authorization: `Bearer ${token}` } });
         setForm({ title: "", description: "", due_date: "" });
         await fetchtasks();
     }
 
     // Delete task
     async function deleteTask(id) {
-        await api.delete(`/tasks/${id}`);
+        await api.delete(`/tasks/${id}`, {
+            headers: { Authorization: `Bearer ${token}` },
+        });
         await fetchtasks();
     }
 
@@ -51,7 +61,10 @@ export default function Todo() {
         await api.put(`/tasks/${task.id}`, {
             ...task,
             isCompleted: !task.isCompleted,
-        });
+        },
+            {
+                headers: { Authorization: `Bearer ${token}` },
+            });
         await fetchtasks();
     }
 
@@ -71,14 +84,29 @@ export default function Todo() {
 
     // Save edited task
     async function saveTask() {
-        await api.put(`/tasks/${editingTask.id}`, editingTask);
+        await api.put(`/tasks/${editingTask.id}`,
+            editingTask,
+            { headers: { Authorization: `Bearer ${token}` } }
+        );
         setEditingTask(null);
         await fetchtasks();
     }
 
     useEffect(() => {
-        fetchtasks();
-    }, []);
+        async function fetchTasks() {
+            if (!token) return;
+            try {
+                const res = await api.get("/tasks", {
+                    headers: { Authorization: `Bearer ${token}` },
+                });
+                console.log("Tasks fetched:", res.data);
+                setTasks(res.data);
+            } catch (err) {
+                console.error("Fetch error:", err.response?.data || err.message);
+            }
+        }
+        fetchTasks();
+    }, [token]);
 
     return (
         <motion.div
@@ -102,9 +130,27 @@ export default function Todo() {
                     boxShadow: "0 8px 32px rgba(0,0,0,0.2)",
                 }}
             >
-                <Typography variant="h3" align="center" gutterBottom fontWeight="bold">
+                <Typography
+                    variant="h3"
+                    align="center"
+                    gutterBottom
+                    fontWeight="bold"
+                >
                     Task Management
                 </Typography>
+                <Grid
+                    container
+                    justifyContent="space-between"
+                    alignItems="center"
+                    sx={{ mb: 3 }}
+                >
+                    <Typography variant="h5" fontWeight="bold">
+                        مرحباً {user?.name}
+                    </Typography>
+                    <Button variant="outlined" color="error" onClick={logout}>
+                        تسجيل الخروج
+                    </Button>
+                </Grid>
 
                 {/* Add Task Form */}
                 <Card sx={{ mb: 4, p: 3, borderRadius: 4, boxShadow: 5 }}>
@@ -115,7 +161,9 @@ export default function Todo() {
                                     label="Title"
                                     fullWidth
                                     value={form.title}
-                                    onChange={(e) => setForm({ ...form, title: e.target.value })}
+                                    onChange={(e) =>
+                                        setForm({ ...form, title: e.target.value })
+                                    }
                                     required
                                 />
                             </Grid>
